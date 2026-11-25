@@ -1,0 +1,55 @@
+provideHooks = (host) ->
+  ###
+  @register module hooks
+  @accepts hook
+  @context capability
+  ###
+  wire = (pkg) ->
+    previous = host.scopes.get pkg.folder
+    if previous
+      await host.scopes.dispose pkg.folder, 'hooks_rewired'
+    else
+      host.scopes.removeOwner pkg.folder
+    scope = host.scopes.create pkg.folder, String(Date.now())
+    runner = host.http.isolatedRunner pkg.folder
+    try
+      hooks = runner?.surfaces?.hooks.map((hook) ->
+        {...hook, call: (payload, context) -> runner.invoke hook.id, [payload], context}
+      ) or await host.scanHooks pkg.folder
+    catch
+      return 0
+    for hook in hooks
+      do (hook) ->
+        host.on hook.event, ((payload, context = {}) ->
+          pkgContext = {...context, pkg, matchedEvent: hook.event}
+          return undefined unless await host.resolveConditions hook.condition or {}, pkgContext
+          result = undefined
+          middleware = []
+          try
+            middleware = await host.http.resolveMiddlewares pkg.folder, pkgContext
+          catch
+            # Missing middleware retains the legacy empty chain.
+          await host.http.runMiddlewares middleware, pkgContext, ->
+            result = await hook.call payload, pkgContext
+          result
+        ), {owner: pkg.folder, priority: hook.priority ? 100, operation: 'transform', scope}
+    hooks.length
+  name: 'hooks'
+  phase: 'wire'
+  api: {wirePackageHooks: wire}
+  install: ->
+    host.on 'logos:package:validating', ({pkg, result}) ->
+      runner = host.http.isolatedRunner pkg.folder
+      hooks = runner?.surfaces?.hooks or await host.scanHooks pkg.folder
+      for hook in hooks
+        host.tools.authority().enforce {
+          principal: {kind: 'package', id: pkg.folder}
+          surface: 'events', operation: 'transform', resource: hook.event
+        }
+      result.hooks = hooks.length
+    host.on 'package:wiring', (({pkg}) -> wire pkg), {priority: 40}
+    host.on 'logos:package:swapping', ({pkg}) -> wire pkg
+    return
+
+createHost = (args...) -> require('@thinkiac/module-runtime-compat').createHost args...
+module.exports = {provideHooks, createHost, createRuntimeModule: provideHooks}

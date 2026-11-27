@@ -1,5 +1,5 @@
 provideHooks = (host) ->
-  ###
+  ###*
   @register module hooks
   @accepts hook
   @context capability
@@ -51,5 +51,4 @@ provideHooks = (host) ->
     host.on 'logos:package:swapping', ({pkg}) -> wire pkg
     return
 
-createHost = (args...) -> require('@thinkiac/module-runtime-compat').createHost args...
-module.exports = {provideHooks, createHost, createRuntimeModule: provideHooks}
+module.exports = {provideHooks}

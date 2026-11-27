@@ -1,5 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const {provideHooks}=require(process.env.COMPAT_BASELINE || '..');
+const path = require('node:path');
+const { loadType } = require(path.join(process.env.LOGOS_ROOT, 'vendor/packages/logos/dist/src/kernel/type-source.js'));
+const { provideHooks } = loadType(path.resolve(__dirname, '../src/index.type'));
 function fixture(options={}) {
  const calls=[],events=[],hooks=[{event:'one',call:async p=>p+1},{event:'two',priority:0,call:async p=>p+2}];
  const host={on:(...a)=>events.push(a),scopes:{get:()=>options.previous,dispose:async(...a)=>calls.push(['dispose',...a]),removeOwner:x=>calls.push(['remove',x]),create:()=>({id:1})},http:{isolatedRunner:()=>options.runner,resolveMiddlewares:async()=>[],runMiddlewares:async(m,c,fn)=>fn()},scanHooks:async()=>{if(options.fail)throw Error('scan');return hooks},resolveConditions:async()=>!options.denied,tools:{authority:()=>({enforce:r=>{calls.push(['authority',r]);if(options.forbidden)throw Error('denied')}})}};

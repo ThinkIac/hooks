@@ -1,36 +1,33 @@
-# @thinkiac/module-hooks
+# Contrato do módulo hooks
 
-Implementação do módulo hooks do Lógos em `.type`, compilada com LogosType.
-Migração compatível da API existente, sem novos eventos ou permissões.
+O Lógos carrega `src/index.type` pelo `runtime.entry` do manifesto. Use
+`###*` no comentário da declaração para que a compilação preserve o JSDoc
+lido pelo carregador. O provedor recebe os ports do host via
+`@context capability`.
+
+`wirePackageHooks(pkg)` substitui o scope anterior e registra cada hook com
+owner, prioridade (padrão 100) e operação `transform`. O módulo avalia as
+condições antes dos middlewares e retorna o resultado do handler para a
+pipeline do barramento. O runner isolado tem preferência sobre o scanner.
+Se o scanner falhar, o módulo retorna zero. Se a descoberta de middlewares
+falhar, a cadeia fica vazia.
+
+O módulo escuta `package:wiring` (prioridade 40), `logos:package:swapping`
+e `logos:package:validating`. A validação exige autoridade `events/transform`
+para cada evento. O EffectScope do host controla o encerramento e a remoção.
+
+## Testes
+
+A CI usa a revisão do Lógos que incorporou o suporte à carga de `.type` e o
+adaptador fixado pelo perfil correspondente. Com esse checkout compilado e
+o adaptador instalado, execute:
 
 ```sh
-npm install ThinkIac/hooks#main
-npm test
-npm run test:isolated
+LOGOS_ROOT=/caminho/absoluto/ThinkIac npm test
 ```
 
-O pacote distribui `dist/index.cjs`, fontes e wrappers legados em `compat/`.
-`provideHooks(host)` é o provedor declarativo; `createRuntimeModule` é seu alias de biblioteca.
-`createHost` usa o SDK externo runtime-compat, fixado por commit.
-O registro existente é preservado por `@register module` com contexto capability.
-
-## Comportamento
-
-`api.wirePackageHooks(pkg)` substitui o scope anterior e registra cada hook com
-owner, prioridade (padrão 100) e operação transform. Condições são avaliadas antes
-dos middlewares; o retorno do handler participa da pipeline do barramento.
-Um runner isolado tem preferência sobre o scanner. Erro de scanner retorna zero;
-erro na descoberta de middleware mantém a cadeia vazia, como antes.
-
-Escuta `package:wiring` (prioridade 40), `logos:package:swapping` e
-`logos:package:validating`. A validação exige autoridade events/transform para
-cada evento. Encerramento e remoção pertencem ao EffectScope do host.
-
-O núcleo não importa fs nem processos; ainda usa Date e Promises JavaScript.
-
-## Desenvolvimento e compatibilidade
-
-`npm run build` compila src/*.type; `npm test` testa o artefato compilado.
-A CI executa testes e instalação isolada. Os wrappers CommonJS legados são
-preservados deliberadamente, não convertidos em uma segunda implementação.
-O compilador é ferramenta de build; não é exigido para carregar o artefato.
+Se o adaptador estiver instalado em outro checkout, aponte
+`LOGOS_HOST_ROOT` para ele. O teste de distribuição empacota e instala o
+tarball sem executar scripts de instalação. Em seguida, verifica o conteúdo,
+descobre o módulo pelo manifesto, dispara um hook e confirma que a troca do
+pacote substitui a inscrição anterior.

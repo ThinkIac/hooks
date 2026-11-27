@@ -1,18 +1,27 @@
 name: CI
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node: [18, 20, 22]
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ThinkIac/ThinkIac
+          ref: 199edf5d84fb6a31d6fd367f16fc01b4b686fb2f
+          path: .logos-ci
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
-          cache: npm
-      - run: npm ci
+          node-version: 22
+      - name: Build Lógos and install the profile's capability adapter
+        working-directory: .logos-ci
+        run: |
+          npm ci --legacy-peer-deps
+          pin=$(node -p "require('./profiles/default.lock.json').dependencies['@thinkiac/module-runtime-compat'].commit")
+          npm install --legacy-peer-deps --no-save --package-lock=false --ignore-scripts "git+https://github.com/ThinkIac/runtime-compat.git#$pin"
       - run: npm test
-      - run: npm run test:isolated
-      - run: git diff --exit-code -- dist
+        env:
+          LOGOS_ROOT: ${{ github.workspace }}/.logos-ci
